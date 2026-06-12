@@ -24,6 +24,11 @@ CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID",   "YOUR_CHAT_ID_HERE")
 BD_TZ   = pytz.timezone("Asia/Dhaka")
 UTC_TZ  = pytz.utc
 
+# ─── ডুপ্লিকেট প্রতিরোধ ──────────────────────────────────────
+# একই অ্যালার্ট একবারের বেশি পাঠাবে না
+# key format → "reminder:2026-06-13 19:00" বা "kickoff:2026-06-13 19:00"
+_sent_alerts: set[str] = set()
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
@@ -92,8 +97,11 @@ def format_kickoff_alert(match: dict, bd_dt: datetime) -> str:
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = (
-        "🏆 <b>FIFA বিশ্বকাপ ২০২৬ -এ স্বাগতম!</b>\n\n"
-       
+        "🏆 <b>FIFA বিশ্বকাপ ২০২৬ বট-এ স্বাগতম!</b>\n\n"
+        "আমি আপনাকে:\n"
+        "✅ প্রতিদিন সকাল ৮টায় দৈনিক ম্যাচ সূচি পাঠাবো\n"
+        "✅ প্রতিটি ম্যাচের ঠিক ১ ঘন্টা আগে রিমাইন্ডার দেবো\n"
+        "✅ ম্যাচ শুরুর মুহূর্তে 🚨 কিক-অফ অ্যালার্ট দেবো\n\n"
         "<b>কমান্ডসমূহ:</b>\n"
         "/today — আজকের ম্যাচ\n"
         "/tomorrow — আগামীকালের ম্যাচ\n"
@@ -152,6 +160,7 @@ async def job_check_reminders(ctx: ContextTypes.DEFAULT_TYPE):
     """প্রতি মিনিটে চেক করে:
     - ম্যাচের ঠিক ৬০ মিনিট আগে → রিমাইন্ডার
     - ম্যাচ শুরুর মুহূর্তে (০ মিনিট) → কিক-অফ অ্যালার্ট
+    _sent_alerts দিয়ে নিশ্চিত করা হয় প্রতিটি অ্যালার্ট মাত্র একবার যায়।
     """
     now_utc = datetime.now(UTC_TZ).replace(second=0, microsecond=0)
     for m in MATCHES:
@@ -160,17 +169,23 @@ async def job_check_reminders(ctx: ContextTypes.DEFAULT_TYPE):
 
         # ১ ঘন্টা আগে রিমাইন্ডার (৫৯–৬১ মিনিটের উইন্ডো)
         if 59 * 60 <= diff <= 61 * 60:
-            bd_dt = utc_to_bd(utc_dt)
-            text  = format_reminder(m, bd_dt)
-            await ctx.bot.send_message(chat_id=CHAT_ID, text=text, parse_mode="HTML")
-            logger.info(f"1-hour reminder sent: {m['home']} vs {m['away']}")
+            key = f"reminder:{m['utc']}"
+            if key not in _sent_alerts:
+                _sent_alerts.add(key)
+                bd_dt = utc_to_bd(utc_dt)
+                text  = format_reminder(m, bd_dt)
+                await ctx.bot.send_message(chat_id=CHAT_ID, text=text, parse_mode="HTML")
+                logger.info(f"1-hour reminder sent: {m['home']} vs {m['away']}")
 
         # কিক-অফ অ্যালার্ট (০ থেকে +১ মিনিটের উইন্ডো)
         elif -60 <= diff <= 60:
-            bd_dt = utc_to_bd(utc_dt)
-            text  = format_kickoff_alert(m, bd_dt)
-            await ctx.bot.send_message(chat_id=CHAT_ID, text=text, parse_mode="HTML")
-            logger.info(f"Kick-off alert sent: {m['home']} vs {m['away']}")
+            key = f"kickoff:{m['utc']}"
+            if key not in _sent_alerts:
+                _sent_alerts.add(key)
+                bd_dt = utc_to_bd(utc_dt)
+                text  = format_kickoff_alert(m, bd_dt)
+                await ctx.bot.send_message(chat_id=CHAT_ID, text=text, parse_mode="HTML")
+                logger.info(f"Kick-off alert sent: {m['home']} vs {m['away']}")
 
 # ─── মেইন ────────────────────────────────────────────────────
 
