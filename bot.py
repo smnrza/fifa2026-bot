@@ -92,11 +92,8 @@ def format_kickoff_alert(match: dict, bd_dt: datetime) -> str:
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = (
-        "🏆 <b>FIFA বিশ্বকাপ ২০২৬ বট-এ স্বাগতম!</b>\n\n"
-        "আমি আপনাকে:\n"
-        "✅ প্রতিদিন সকাল ৮টায় দৈনিক ম্যাচ সূচি পাঠাবো\n"
-        "✅ প্রতিটি ম্যাচের ঠিক ১ ঘন্টা আগে রিমাইন্ডার দেবো\n"
-        "✅ ম্যাচ শুরুর মুহূর্তে 🚨 কিক-অফ অ্যালার্ট দেবো\n\n"
+        "🏆 <b>FIFA বিশ্বকাপ ২০২৬ -এ স্বাগতম!</b>\n\n"
+       
         "<b>কমান্ডসমূহ:</b>\n"
         "/today — আজকের ম্যাচ\n"
         "/tomorrow — আগামীকালের ম্যাচ\n"
